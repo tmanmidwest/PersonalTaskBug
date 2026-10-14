@@ -16,6 +16,11 @@ const envSchema = z.object({
   ALLOWED_EMAILS: z
     .string()
     .min(1, "Set ALLOWED_EMAILS to at least your own Google address"),
+  // Directory where uploaded attachments are stored. In Docker this is a
+  // mounted volume so files survive container rebuilds.
+  UPLOAD_DIR: z.string().default("./uploads"),
+  // Max upload size in megabytes.
+  MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

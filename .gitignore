@@ -21,5 +21,8 @@ npm-debug.log*
 # prisma
 /prisma/migrations/dev.db*
 
+# uploaded files (local dev)
+/uploads
+
 # typescript
 *.tsbuildinfo

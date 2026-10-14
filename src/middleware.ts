@@ -12,6 +12,7 @@ export default auth((req) => {
   const isPublic =
     pathname === "/signin" ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/health" ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/manifest.webmanifest";

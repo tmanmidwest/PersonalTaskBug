@@ -27,7 +27,11 @@ services:
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:?set AUTH_GOOGLE_ID in .env}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:?set AUTH_GOOGLE_SECRET in .env}
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:?set ALLOWED_EMAILS in .env}
+      UPLOAD_DIR: /data/uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
       NODE_ENV: production
+    volumes:
+      - uploads:/data/uploads
     # No published port: the Cloudflare tunnel connects to this service on the
     # Docker network. To test locally without the tunnel, uncomment below.
     # ports:
@@ -43,3 +47,4 @@ services:
 
 volumes:
   db-data:
+  uploads:

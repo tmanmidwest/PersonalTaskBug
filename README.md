@@ -13,18 +13,79 @@ ideas. Built to run on your own Docker host behind a Cloudflare tunnel.
 
 ## Status
 
-This is **Step 1 — Foundation**. In place now:
+Steps 1–3 are done. In place now:
 
-- Project scaffold, config, and security headers
-- Full database schema (projects, items, custom statuses, labels, history,
-  attachments, comments, API tokens)
-- Google sign-in gated by `ALLOWED_EMAILS`, with all routes protected by
-  middleware
-- Docker Compose (app + Postgres) with migrations run on startup and health
-  checks
+- **Foundation:** scaffold, security headers, full database schema, Google
+  sign-in gated by `ALLOWED_EMAILS`, Docker Compose with startup migrations.
+- **Core app:** quick capture; task/bug/feature boards and lists; per-project
+  custom statuses and labels; inline editing, comments, and change history;
+  photo/file/link attachments. Mobile-first.
+- **API & MCP:** a token-authenticated REST API (`/api/v1`) and a stdio MCP
+  server that wraps it (see below).
 
-Still to come: quick entry and the task/bug boards (Step 2), REST API + MCP
-server (Step 3), dashboards and Google Calendar sync (Step 4).
+Still to come: dashboards and Google Calendar sync (Step 4).
+
+## REST API
+
+Create a token in the app under **Settings → API tokens** (shown once). Pass
+it as a bearer token:
+
+```bash
+BASE=https://your-host
+TOKEN=ptb_xxx
+
+# list open items
+curl -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/items?open=true"
+
+# create a bug
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"project":"APP","title":"Login button broken","type":"BUG","priority":"HIGH"}' \
+  "$BASE/api/v1/items"
+```
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/projects` | List projects + statuses |
+| POST | `/api/v1/projects` | Create a project |
+| GET | `/api/v1/items` | List items (`?project=&type=&open=&limit=`) |
+| POST | `/api/v1/items` | Create an item (by project `key`) |
+| GET | `/api/v1/items/:id` | Get one item |
+| PATCH | `/api/v1/items/:id` | Update (status by name) |
+| DELETE | `/api/v1/items/:id` | Delete an item |
+| POST | `/api/v1/items/:id/comments` | Add a comment |
+
+Tokens are stored only as SHA-256 hashes, can be given an expiry, and can be
+revoked at any time. Every call is scoped to the token owner's data.
+
+## MCP server
+
+`src/mcp/server.ts` is a stdio MCP server that wraps the REST API, exposing
+`list_projects`, `list_items`, `create_item`, `update_item`, and
+`add_comment` tools. Point it at your host with an API token:
+
+```bash
+TRACKER_URL=https://your-host TRACKER_TOKEN=ptb_xxx npm run mcp
+```
+
+Register it with an MCP client (e.g. Claude Desktop) — example
+`claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "tracker": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/PersonalTaskBug/src/mcp/server.ts"],
+      "env": {
+        "TRACKER_URL": "https://your-host",
+        "TRACKER_TOKEN": "ptb_xxx"
+      }
+    }
+  }
+}
+```
 
 ## Local development
 

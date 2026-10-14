@@ -39,6 +39,12 @@ export function ProjectNav({ projects }: { projects: NavProject[] }) {
       >
         <span>＋</span> New project
       </Link>
+      <Link
+        href="/settings"
+        className={`mt-4 ${linkClass(pathname === "/settings")}`}
+      >
+        <span>⚙︎</span> Settings
+      </Link>
     </nav>
   );
 }

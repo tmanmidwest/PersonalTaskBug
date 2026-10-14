@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { createProject as createProjectService } from "@/server/services/projects";
 
 const projectInput = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -30,26 +31,7 @@ export async function createProject(formData: FormData) {
     color: formData.get("color") || undefined,
   });
 
-  const existing = await prisma.project.findUnique({
-    where: { ownerId_key: { ownerId: user.id, key: parsed.key } },
-  });
-  if (existing) {
-    throw new Error(`Project key "${parsed.key}" is already in use.`);
-  }
-
-  await prisma.project.create({
-    data: {
-      ...parsed,
-      ownerId: user.id,
-      statuses: {
-        create: [
-          { name: "To do", color: "#64748b", position: 0, isDefault: true },
-          { name: "In progress", color: "#3b82f6", position: 1 },
-          { name: "Done", color: "#22c55e", position: 2, isDone: true },
-        ],
-      },
-    },
-  });
+  await createProjectService(user.id, parsed);
 
   revalidatePath("/", "layout");
   redirect(`/projects/${parsed.key}`);

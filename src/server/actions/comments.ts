@@ -4,23 +4,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { logActivity } from "@/lib/activity";
-
-async function assertOwnsItem(userId: string, itemId: string) {
-  const item = await prisma.item.findUnique({
-    where: { id: itemId },
-    include: { project: true },
-  });
-  if (!item || item.project.ownerId !== userId) {
-    throw new Error("Item not found.");
-  }
-  return item;
-}
+import { addComment as addCommentService } from "@/server/services/comments";
 
 export async function addComment(itemId: string, formData: FormData) {
   const user = await requireUser();
-  await assertOwnsItem(user.id, itemId);
-
   const body = z
     .string()
     .trim()
@@ -28,14 +15,7 @@ export async function addComment(itemId: string, formData: FormData) {
     .max(10000)
     .parse(formData.get("body"));
 
-  await prisma.$transaction(async (tx) => {
-    await tx.comment.create({
-      data: { itemId, authorId: user.id, body },
-    });
-    await logActivity(tx, itemId, user.id, [
-      { action: "commented", field: "comment" },
-    ]);
-  });
+  await addCommentService(user.id, itemId, body);
   revalidatePath("/", "layout");
 }
 

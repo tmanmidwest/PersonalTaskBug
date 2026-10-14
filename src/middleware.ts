@@ -13,6 +13,9 @@ export default auth((req) => {
     pathname === "/signin" ||
     pathname.startsWith("/api/auth") ||
     pathname === "/api/health" ||
+    // Token-authenticated endpoints handle their own auth (Bearer token).
+    pathname.startsWith("/api/v1") ||
+    pathname.startsWith("/api/mcp") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/manifest.webmanifest";

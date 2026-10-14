@@ -1,0 +1,253 @@
+// Prisma schema for Personal Task & Bug Tracker
+// Datasource: PostgreSQL. Run `npx prisma migrate dev` to apply.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Auth.js / NextAuth models)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  // Only the owner(s) listed in ALLOWED_EMAILS can sign in; role left for
+  // future multi-user enhancements.
+  role          UserRole  @default(OWNER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  projects    Project[]
+  items       Item[]       @relation("ItemCreator")
+  comments    Comment[]
+  activities  Activity[]
+  apiTokens   ApiToken[]
+  attachments Attachment[]
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Core domain
+// ---------------------------------------------------------------------------
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  key         String // short prefix used in item references, e.g. "APP"
+  description String?  @db.Text
+  color       String   @default("#6366f1")
+  archived    Boolean  @default(false)
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items    Item[]
+  statuses Status[]
+  labels   Label[]
+
+  @@unique([ownerId, key])
+  @@index([ownerId])
+}
+
+enum ItemType {
+  TASK
+  BUG
+  FEATURE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Status {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  color     String   @default("#94a3b8")
+  // ordering within the board, and whether this status closes an item
+  position  Int      @default(0)
+  isDefault Boolean  @default(false)
+  isDone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items   Item[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model Item {
+  id              String    @id @default(cuid())
+  projectId       String
+  number          Int // per-project sequential number (APP-1, APP-2, ...)
+  type            ItemType  @default(TASK)
+  title           String
+  description     String?   @db.Text
+  priority        Priority  @default(MEDIUM)
+  statusId        String?
+  dueDate         DateTime?
+  // Google Calendar event id, populated when synced (future enhancement)
+  calendarEventId String?
+  creatorId       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status      Status?      @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  creator     User         @relation("ItemCreator", fields: [creatorId], references: [id])
+  attachments Attachment[]
+  comments    Comment[]
+  activities  Activity[]
+  labels      Label[]      @relation("ItemLabels")
+
+  @@unique([projectId, number])
+  @@index([projectId])
+  @@index([statusId])
+  @@index([dueDate])
+}
+
+model Label {
+  id        String @id @default(cuid())
+  projectId String
+  name      String
+  color     String @default("#64748b")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items   Item[]  @relation("ItemLabels")
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model Attachment {
+  id         String         @id @default(cuid())
+  itemId     String
+  uploaderId String
+  kind       AttachmentKind @default(FILE)
+  // For FILE/IMAGE: storage path/key. For LINK: the URL.
+  url        String         @db.Text
+  filename   String?
+  mimeType   String?
+  sizeBytes  Int?
+  createdAt  DateTime       @default(now())
+
+  item     Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  uploader User @relation(fields: [uploaderId], references: [id])
+
+  @@index([itemId])
+}
+
+enum AttachmentKind {
+  FILE
+  IMAGE
+  LINK
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  itemId    String
+  authorId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  item   Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([itemId])
+}
+
+// Append-only change history for items
+model Activity {
+  id        String   @id @default(cuid())
+  itemId    String
+  actorId   String
+  action    String // e.g. "created", "status_changed", "priority_changed"
+  field     String?
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  item  Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+// Personal access tokens for the REST API / MCP server. Only a hash is stored.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  tokenHash  String    @unique
+  prefix     String // first chars shown in UI to identify the token
+  scopes     String[]  @default([])
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

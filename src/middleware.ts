@@ -1,15 +1,20 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import { authConfig } from "@/auth.config";
+
+// A dedicated NextAuth instance built from the edge-safe config only. The full
+// instance in @/auth imports Prisma and node:crypto (via the DB-backed config)
+// and can't be evaluated in the edge runtime where middleware runs, so the
+// middleware must not import it.
+const { auth } = NextAuth(authConfig);
 
 /**
- * Edge-safe route guard. It only inspects the JWT (no database access, so it
- * stays compatible with the edge runtime) and redirects unauthenticated users
- * to the sign-in page.
+ * Edge-safe route guard. It only inspects the JWT (no database access) and
+ * redirects unauthenticated users to the sign-in page.
  *
- * First-run setup gating is handled in the server components that run in the
- * Node runtime — /signin and the app layout redirect to /setup when the app
- * isn't configured yet, and /setup redirects away once it is. Doing it there
- * keeps Prisma and node:crypto out of the edge middleware.
+ * First-run setup gating is handled in the Node-runtime server components
+ * (/signin and /setup redirect based on isSetupComplete), which keeps Prisma
+ * and node:crypto out of the edge middleware.
  */
 export default auth((req) => {
   const { pathname } = req.nextUrl;

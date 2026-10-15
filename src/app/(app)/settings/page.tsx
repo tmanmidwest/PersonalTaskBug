@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { getAppConfig } from "@/lib/app-config";
 import { TokenManager } from "@/components/token-manager";
 import { CalendarSettings } from "@/components/calendar-settings";
+import { AccessSettings } from "@/components/access-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await requireUser();
+  const config = await getAppConfig();
   const [tokens, googleAccount] = await Promise.all([
     prisma.apiToken.findMany({
       where: { userId: user.id, revokedAt: null },
@@ -34,6 +37,15 @@ export default async function SettingsPage() {
       <p className="mb-6 text-sm text-slate-500">
         API access and integrations.
       </p>
+
+      <div className="mb-6">
+        <AccessSettings
+          googleClientId={config.googleClientId ?? ""}
+          allowedEmails={config.allowedEmails}
+          maxUploadMb={config.maxUploadMb}
+          hasSecret={!!config.googleClientSecret}
+        />
+      </div>
 
       <div className="mb-6">
         <CalendarSettings

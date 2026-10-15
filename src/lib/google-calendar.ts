@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { env } from "@/env";
+import { getAppConfig } from "@/lib/app-config";
 
 /**
  * Minimal Google Calendar integration for syncing item due dates to events.
@@ -26,12 +26,17 @@ async function getAccessToken(userId: string): Promise<string | null> {
 
   if (!account.refresh_token) return account.access_token ?? null;
 
+  const cfg = await getAppConfig();
+  if (!cfg.googleClientId || !cfg.googleClientSecret) {
+    return account.access_token ?? null;
+  }
+
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: env.AUTH_GOOGLE_ID,
-      client_secret: env.AUTH_GOOGLE_SECRET,
+      client_id: cfg.googleClientId,
+      client_secret: cfg.googleClientSecret,
       grant_type: "refresh_token",
       refresh_token: account.refresh_token,
     }),

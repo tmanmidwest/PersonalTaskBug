@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
+import { syncItemCalendar, removeItemCalendar } from "@/lib/google-calendar";
 import { ItemType, Priority, Prisma } from "@prisma/client";
 
 /**
@@ -72,6 +73,9 @@ export async function createItem(userId: string, input: CreateItemInput) {
       },
     });
     await logActivity(tx, item.id, userId, [{ action: "created" }]);
+    return item;
+  }).then(async (item) => {
+    if (input.dueDate) await syncItemCalendar(userId, item.id);
     return item;
   });
 }
@@ -149,15 +153,34 @@ export async function updateItem(
 
   if (Object.keys(data).length === 0) return item;
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.item.update({ where: { id: itemId }, data });
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.item.update({ where: { id: itemId }, data });
     await logActivity(tx, itemId, userId, changes);
-    return updated;
+    return u;
   });
+
+  // Reconcile the calendar event when the due date changed, or when the event
+  // exists and its title/description changed.
+  const touchesEvent =
+    patch.dueDate !== undefined ||
+    (item.calendarEventId != null &&
+      (data.title !== undefined || data.description !== undefined));
+  if (touchesEvent) await syncItemCalendar(userId, itemId);
+
+  return updated;
 }
 
 export async function deleteItem(userId: string, itemId: string) {
-  await ownedItem(userId, itemId);
+  const item = await ownedItem(userId, itemId);
+  await removeItemCalendar(userId, {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    dueDate: item.dueDate,
+    calendarEventId: item.calendarEventId,
+    number: item.number,
+    project: { key: item.project.key },
+  });
   await prisma.item.delete({ where: { id: itemId } });
 }
 

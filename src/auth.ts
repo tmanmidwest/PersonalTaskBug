@@ -18,6 +18,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          // Request calendar.events so opt-in due-date sync can create events.
+          // Calendar access is used only when sync is enabled in Settings.
+          scope:
+            "openid email profile https://www.googleapis.com/auth/calendar.events",
         },
       },
     }),

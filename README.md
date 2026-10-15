@@ -13,7 +13,7 @@ ideas. Built to run on your own Docker host behind a Cloudflare tunnel.
 
 ## Status
 
-Steps 1–3 are done. In place now:
+All four planned steps are done. In place now:
 
 - **Foundation:** scaffold, security headers, full database schema, Google
   sign-in gated by `ALLOWED_EMAILS`, Docker Compose with startup migrations.
@@ -22,8 +22,9 @@ Steps 1–3 are done. In place now:
   photo/file/link attachments. Mobile-first.
 - **API & MCP:** a token-authenticated REST API (`/api/v1`) and a stdio MCP
   server that wraps it (see below).
-
-Still to come: dashboards and Google Calendar sync (Step 4).
+- **Dashboard & Calendar:** an analytics dashboard (open/overdue/due-this-week
+  stats, breakdowns by type, priority, and project, plus recent activity) and
+  opt-in Google Calendar sync for due dates (see below).
 
 ## REST API
 
@@ -107,6 +108,9 @@ npm run dev              # http://localhost:3000
    `AUTH_GOOGLE_SECRET`.
 4. Set `ALLOWED_EMAILS` to your Google address. Only listed accounts can sign
    in.
+5. Sign-in requests the `calendar.events` scope so due-date sync can work.
+   Enable the Google Calendar API in your Cloud project. Calendar access is
+   only *used* when you turn sync on in Settings.
 
 ## Deploy with Docker
 
@@ -124,6 +128,23 @@ To seed a starter project after your first sign-in:
 ```bash
 docker compose exec app node_modules/.bin/tsx prisma/seed.ts
 ```
+
+## Dashboard
+
+`/dashboard` gives an at-a-glance view: counts of open, overdue, and
+due-this-week items plus completed totals, horizontal-bar breakdowns of open
+items by type, priority, and project, and a recent-activity feed. Everything
+is scoped to your data and links through to the items.
+
+## Google Calendar sync
+
+Opt-in, under **Settings → Google Calendar sync**. When enabled, any item with
+a due date is mirrored to your Google Calendar as an all-day event and kept in
+sync when the date changes or the item is deleted. It uses the OAuth tokens
+from sign-in (refreshing as needed) and targets the calendar ID you choose
+(`primary` by default). Sync is best-effort: a calendar hiccup never blocks
+saving an item. If you enabled it before granting calendar access, sign out
+and back in to approve the scope.
 
 ## Security notes
 

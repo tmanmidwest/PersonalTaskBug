@@ -1,30 +1,47 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { TokenManager } from "@/components/token-manager";
+import { CalendarSettings } from "@/components/calendar-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const tokens = await prisma.apiToken.findMany({
-    where: { userId: user.id, revokedAt: null },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      prefix: true,
-      lastUsedAt: true,
-      expiresAt: true,
-      createdAt: true,
-    },
-  });
+  const [tokens, googleAccount] = await Promise.all([
+    prisma.apiToken.findMany({
+      where: { userId: user.id, revokedAt: null },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        prefix: true,
+        lastUsedAt: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    }),
+    prisma.account.findFirst({
+      where: { userId: user.id, provider: "google" },
+      select: { scope: true },
+    }),
+  ]);
+
+  const calendarConnected = !!googleAccount?.scope?.includes("calendar");
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="mb-1 text-2xl font-bold">Settings</h1>
       <p className="mb-6 text-sm text-slate-500">
-        Manage access tokens for the REST API and MCP server.
+        API access and integrations.
       </p>
+
+      <div className="mb-6">
+        <CalendarSettings
+          enabled={user.calendarSyncEnabled}
+          calendarId={user.calendarId}
+          connected={calendarConnected}
+        />
+      </div>
 
       <TokenManager tokens={tokens} />
 

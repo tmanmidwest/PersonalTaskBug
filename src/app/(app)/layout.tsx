@@ -70,11 +70,25 @@ export default async function AppLayout({
           Home
         </Link>
         <Link
+          href="/dashboard"
+          className="flex flex-col items-center px-4 py-1 text-xs text-slate-600"
+        >
+          <span className="text-lg">📊</span>
+          Dashboard
+        </Link>
+        <Link
           href="/projects"
           className="flex flex-col items-center px-4 py-1 text-xs text-slate-600"
         >
           <span className="text-lg">📁</span>
           Projects
+        </Link>
+        <Link
+          href="/settings"
+          className="flex flex-col items-center px-4 py-1 text-xs text-slate-600"
+        >
+          <span className="text-lg">⚙︎</span>
+          Settings
         </Link>
       </nav>
     </div>

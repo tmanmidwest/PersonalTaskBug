@@ -18,6 +18,9 @@ export function ProjectNav({ projects }: { projects: NavProject[] }) {
       <Link href="/" className={linkClass(pathname === "/")}>
         <span>🏠</span> All items
       </Link>
+      <Link href="/dashboard" className={linkClass(pathname === "/dashboard")}>
+        <span>📊</span> Dashboard
+      </Link>
       <div className="mt-4 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
         Projects
       </div>

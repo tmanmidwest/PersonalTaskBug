@@ -32,10 +32,13 @@ services:
       NODE_ENV: production
     volumes:
       - uploads:/data/uploads
-    # No published port: the Cloudflare tunnel connects to this service on the
-    # Docker network. To test locally without the tunnel, uncomment below.
-    # ports:
-    #   - "3000:3000"
+    # Publish the app on a host port. Bound to localhost by default so it isn't
+    # exposed on your LAN — point your Cloudflare tunnel (or a reverse proxy) at
+    # http://localhost:${APP_PORT}. To reach it from other machines on the LAN,
+    # set APP_BIND=0.0.0.0 in .env. If cloudflared runs as its own container on
+    # this Compose network, it can also reach the app directly at http://app:3000.
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     expose:
       - "3000"
     healthcheck:

@@ -11,6 +11,24 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Application configuration (single row, edited through the UI)
+// ---------------------------------------------------------------------------
+
+// A single-row table holding runtime configuration that used to live in env.
+// Only DATABASE_URL and AUTH_SECRET remain in the environment (needed to boot);
+// everything here is set via the first-run setup wizard and Settings.
+model AppConfig {
+  id                 String    @id @default("singleton")
+  googleClientId     String?
+  // Stored encrypted (AES-256-GCM, key derived from AUTH_SECRET).
+  googleClientSecret String?   @db.Text
+  allowedEmails      String[]  @default([])
+  maxUploadMb        Int       @default(25)
+  setupCompletedAt   DateTime?
+  updatedAt          DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Auth (Auth.js / NextAuth models)
 // ---------------------------------------------------------------------------
 

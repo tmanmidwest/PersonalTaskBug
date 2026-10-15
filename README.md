@@ -16,7 +16,8 @@ ideas. Built to run on your own Docker host behind a Cloudflare tunnel.
 All four planned steps are done. In place now:
 
 - **Foundation:** scaffold, security headers, full database schema, Google
-  sign-in gated by `ALLOWED_EMAILS`, Docker Compose with startup migrations.
+  sign-in gated by a UI-managed email allowlist, Docker Compose with startup
+  migrations, and a first-run setup wizard for configuration.
 - **Core app:** quick capture; task/bug/feature boards and lists; per-project
   custom statuses and labels; inline editing, comments, and change history;
   photo/file/link attachments. Mobile-first.
@@ -91,37 +92,60 @@ Register it with an MCP client (e.g. Claude Desktop) — example
 ## Local development
 
 ```bash
-cp .env.example .env     # fill in the values
+cp .env.example .env     # set DATABASE_URL and AUTH_SECRET
 npm install
 npx prisma migrate dev   # create the schema in your local Postgres
 npm run dev              # http://localhost:3000
 ```
 
-### Google OAuth setup
+Only `DATABASE_URL` and `AUTH_SECRET` go in `.env` — they are needed to boot
+the app and the database. Everything else is configured in the UI (see below)
+and stored in the database.
+
+### Configuration
+
+The app is configured through its own UI, not environment variables:
+
+- **First run:** opening the app redirects you to a **setup wizard** at
+  `/setup`. Enter your Google OAuth Client ID and Secret, the email
+  address(es) allowed to sign in, and the max upload size. The wizard shows the
+  exact redirect URI to register with Google. Once saved, the wizard closes.
+- **Later:** change any of it under **Settings → Sign-in & access** while
+  signed in.
+
+The Google Client Secret is encrypted at rest (AES-256-GCM, with a key derived
+from `AUTH_SECRET`) before being stored.
+
+#### Google OAuth
 
 1. In the [Google Cloud Console](https://console.cloud.google.com/) create an
    OAuth 2.0 Client ID (type: Web application).
-2. Add an authorized redirect URI: `${AUTH_URL}/api/auth/callback/google`
-   (e.g. `https://tracker.example.com/api/auth/callback/google`, plus
+2. Add the authorized redirect URI the setup wizard shows you — it is
+   `<your app URL>/api/auth/callback/google` (e.g.
+   `https://tracker.example.com/api/auth/callback/google`, plus
    `http://localhost:3000/api/auth/callback/google` for local dev).
-3. Put the client ID/secret into `.env` as `AUTH_GOOGLE_ID` /
-   `AUTH_GOOGLE_SECRET`.
-4. Set `ALLOWED_EMAILS` to your Google address. Only listed accounts can sign
-   in.
-5. Sign-in requests the `calendar.events` scope so due-date sync can work.
+3. Paste the client ID and secret into the setup wizard, and add your Google
+   address to the allowed emails. Only listed accounts can sign in.
+4. Sign-in requests the `calendar.events` scope so due-date sync can work.
    Enable the Google Calendar API in your Cloud project. Calendar access is
    only *used* when you turn sync on in Settings.
 
 ## Deploy with Docker
 
 ```bash
-cp .env.example .env     # fill in production values; set a strong AUTH_SECRET
+cp .env.example .env     # set a strong AUTH_SECRET and the POSTGRES_* values
 docker compose up -d --build
 ```
 
-The `app` service listens on port 3000 inside the Docker network and does not
-publish a host port — point your Cloudflare tunnel at `http://app:3000` (or at
-the host if you expose the port). Migrations run automatically on startup.
+The `app` service publishes a host port (`APP_PORT`, default 3000), bound to
+localhost by default (`APP_BIND=127.0.0.1`) so it isn't exposed on your LAN —
+point your Cloudflare tunnel or reverse proxy at `http://localhost:${APP_PORT}`.
+Set `APP_BIND=0.0.0.0` to reach it from other machines on the LAN. If
+`cloudflared` runs as a container on the same Compose network, it can reach the
+app directly at `http://app:3000`. Migrations run automatically on startup.
+
+After the containers are up, open the app and complete the one-time setup
+wizard to configure Google sign-in.
 
 To seed a starter project after your first sign-in:
 
@@ -148,8 +172,14 @@ and back in to approve the scope.
 
 ## Security notes
 
-- Environment variables are validated at startup (`src/env.ts`) — the app
-  refuses to boot if misconfigured.
+- The two bootstrap environment variables (`DATABASE_URL`, `AUTH_SECRET`) are
+  validated at startup (`src/env.ts`) — the app refuses to boot if misconfigured.
+- UI-configured secrets (the Google Client Secret) are encrypted at rest with
+  AES-256-GCM, keyed from `AUTH_SECRET`, so a database dump alone can't reveal
+  them.
+- Until setup is complete, no auth provider is registered and every route
+  redirects to the setup wizard; the setup action refuses to run once setup is
+  done.
 - Sign-in is restricted to an explicit email allowlist, not just "any Google
   account".
 - Security headers (`X-Frame-Options`, `nosniff`, referrer and permissions

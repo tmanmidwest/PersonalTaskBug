@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
 import { env } from "@/env";
+import { getAppConfig } from "@/lib/app-config";
 import { AttachmentKind } from "@prisma/client";
 
 async function assertOwnsItem(userId: string, itemId: string) {
@@ -32,9 +33,10 @@ export async function uploadAttachment(itemId: string, formData: FormData) {
     throw new Error("No file provided.");
   }
 
-  const maxBytes = env.MAX_UPLOAD_MB * 1024 * 1024;
+  const { maxUploadMb } = await getAppConfig();
+  const maxBytes = maxUploadMb * 1024 * 1024;
   if (file.size > maxBytes) {
-    throw new Error(`File exceeds the ${env.MAX_UPLOAD_MB} MB limit.`);
+    throw new Error(`File exceeds the ${maxUploadMb} MB limit.`);
   }
 
   const id = randomUUID();

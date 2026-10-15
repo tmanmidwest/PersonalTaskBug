@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { isSetupComplete } from "@/lib/app-config";
+
+export const dynamic = "force-dynamic";
 
 export default async function SignInPage() {
+  // Until the app is configured there is no sign-in provider; send to setup.
+  if (!(await isSetupComplete())) redirect("/setup");
+
   const session = await auth();
   if (session?.user) redirect("/");
 

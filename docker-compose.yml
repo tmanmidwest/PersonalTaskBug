@@ -42,12 +42,21 @@ services:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
     expose:
       - "3000"
+    # Probe 127.0.0.1, not "localhost": on Alpine, "localhost" can resolve to
+    # the IPv6 loopback (::1), but the Next.js server listens on IPv4 only
+    # (HOSTNAME=0.0.0.0), so a localhost probe gets "connection refused" and
+    # the container is marked unhealthy even though the app is fine. Uses
+    # Node's built-in fetch so it doesn't depend on busybox wget.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
 volumes:
   db-data:

@@ -26,6 +26,11 @@ export default async function SignInPage() {
         <form
           action={async () => {
             "use server";
+            // The page may have been rendered by an earlier server process or
+            // before the config changed. If Google isn't configured now,
+            // signIn("google") would throw "Provider not found"; send the user
+            // to setup instead.
+            if (!(await isSetupComplete())) redirect("/setup");
             await signIn("google", { redirectTo: "/" });
           }}
         >

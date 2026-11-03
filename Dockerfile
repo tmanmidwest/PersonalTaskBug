@@ -19,7 +19,10 @@ RUN npm run build
 # ---- runner ----
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
+# Skip Prisma's update check on every boot (noisy banner + outbound call).
+ENV NODE_ENV=production \
+    PRISMA_HIDE_UPDATE_MESSAGE=1 \
+    CHECKPOINT_DISABLE=1
 RUN apk add --no-cache openssl
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
@@ -43,6 +46,12 @@ RUN chmod +x ./docker-entrypoint.sh
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
+
+# Same probe as docker-compose.yml, so the image reports health correctly even
+# when run outside Compose. Uses 127.0.0.1 (not localhost, which can resolve to
+# ::1 on Alpine while the server only listens on IPv4).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
